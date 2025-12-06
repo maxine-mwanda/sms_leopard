@@ -1,0 +1,10 @@
+.env
+go mod
+go sum
+*logs
+.vscode
+*.swp
+.idea/
+tmp/
+build/
+*log

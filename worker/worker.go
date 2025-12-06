@@ -4,8 +4,8 @@ import (
     "database/sql"
     "log"
 
-    "github.com/example/smsleopard/models"
-    "github.com/example/smsleopard/queue"
+    "sms_leopard/models"
+    "sms_leopard/queue"
 )
 
 type Worker struct{

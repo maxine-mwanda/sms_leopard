@@ -1,7 +1,8 @@
 package main
 
 import (
-    "database/sql"
+    //"database/sql"
+    "github.com/joho/godotenv"
     "log"
     "net/http"
     "os"
@@ -9,14 +10,15 @@ import (
 
     "github.com/streadway/amqp"
 
-    "github.com/example/smsleopard/controllers"
-    dbpkg "github.com/example/smsleopard/db"
-    "github.com/example/smsleopard/models"
-    "github.com/example/smsleopard/queue"
-    workerpkg "github.com/example/smsleopard/worker"
+    "sms_leopard/controllers"
+    dbpkg "sms_leopard/db"
+    "sms_leopard/models"
+    "sms_leopard/queue"
+    workerpkg "sms_leopard/worker"
 )
 
 func main(){
+    godotenv.Load() 
     dsn := os.Getenv("DSN")
     if dsn=="" { log.Fatal("DSN env required") }
     sqlDB, err := dbpkg.OpenFromDSN(dsn)

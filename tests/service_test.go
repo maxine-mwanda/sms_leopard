@@ -5,7 +5,7 @@ import (
     "testing"
 
     "github.com/DATA-DOG/go-sqlmock"
-    m "github.com/example/smsleopard/models"
+    m "sms_leopard/models"
 )
 
 func TestRenderTemplate(t *testing.T){
