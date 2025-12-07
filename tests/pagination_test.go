@@ -1,22 +1,56 @@
 package tests
 
 import (
-    //"database/sql"
-    "testing"
+	"testing"
 
-    "github.com/DATA-DOG/go-sqlmock"
-    m "sms_leopard/models"
+	m "sms_leopard/models"
+
+	"database/sql"
+
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-func TestListCampaignsPagination(t *testing.T){
-    db, mock, err := sqlmock.New()
-    if err!=nil{ t.Fatalf("mock: %v", err) }
-    defer db.Close()
-    rows := sqlmock.NewRows([]string{"id","name","template","status","created_at"})
-    for i:=0;i<3;i++{ rows.AddRow(i+1, "c","t","draft","2020-01-01 00:00:00") }
-    mock.ExpectQuery("SELECT id, name, template, status, created_at FROM campaigns").WillReturnRows(rows)
-    svc := m.NewService(db)
-    _, err = svc.ListCampaigns(3,0)
-    if err!=nil{ t.Fatalf("list: %v", err) }
-    if err := mock.ExpectationsWereMet(); err!=nil{ t.Fatalf("unmet: %v", err) }
+func TestListCampaignsPagination(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+
+		defer db.Close()
+
+		// Create schema
+		_, err = db.Exec(`
+		CREATE TABLE campaigns (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT,
+			template TEXT,
+			status TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+	`)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Seed data
+		for i := 0; i < 3; i++ {
+			_, err := db.Exec(
+				"INSERT INTO campaigns(name, template, status) VALUES(?, ?, ?)",
+				"c", "t", "draft",
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		svc := m.NewService(db)
+		res, err := svc.ListCampaigns(3, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(res) != 3 {
+			t.Fatalf("expected 3 campaigns, got %d", len(res))
+		}
+	}
 }

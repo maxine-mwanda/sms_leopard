@@ -9,6 +9,7 @@ import (
     "time"
 
     "github.com/streadway/amqp"
+    "github.com/gorilla/mux"
 
     "sms_leopard/controllers"
     dbpkg "sms_leopard/db"
@@ -17,44 +18,74 @@ import (
     workerpkg "sms_leopard/worker"
 )
 
-func main(){
-    godotenv.Load() 
+func main() {
+    // Load env
+    godotenv.Load()
+
+    // Database setup
     dsn := os.Getenv("DSN")
-    if dsn=="" { log.Fatal("DSN env required") }
+    if dsn == "" {
+        log.Fatal("DSN env required")
+    }
     sqlDB, err := dbpkg.OpenFromDSN(dsn)
-    if err!=nil { log.Fatalf("db open: %v", err) }
-    if err := dbpkg.Migrate(sqlDB); err!=nil { log.Fatalf("migrate: %v", err) }
+    if err != nil {
+        log.Fatalf("db open: %v", err)
+    }
+    if err := dbpkg.Migrate(sqlDB); err != nil {
+        log.Fatalf("migrate: %v", err)
+    }
     svc := models.NewService(sqlDB)
 
+    // AMQP setup
     amqpURL := os.Getenv("AMQP_URL")
-    if amqpURL=="" { log.Fatal("AMQP_URL env required") }
+    if amqpURL == "" {
+        log.Fatal("AMQP_URL env required")
+    }
     conn, err := amqp.Dial(amqpURL)
-    if err!=nil { log.Fatalf("amqp dial: %v", err) }
+    if err != nil {
+        log.Fatalf("amqp dial: %v", err)
+    }
     defer conn.Close()
 
     pub, err := queue.NewPublisher(conn, "smsleopard-exchange")
-    if err!=nil { log.Fatalf("publisher: %v", err) }
+    if err != nil {
+        log.Fatalf("publisher: %v", err)
+    }
     consumer, err := queue.NewConsumer(conn, "smsleopard-queue")
-    if err!=nil { log.Fatalf("consumer: %v", err) }
+    if err != nil {
+        log.Fatalf("consumer: %v", err)
+    }
 
+    // Handlers
     handler := controllers.NewHandler(svc, pub)
-    mux := http.NewServeMux()
-    mux.HandleFunc("/campaigns", func(w http.ResponseWriter, r *http.Request){
-        if r.Method=="POST"{ handler.CreateCampaign(w,r); return }
-        if r.Method=="GET"{ handler.ListCampaigns(w,r); return }
-        w.WriteHeader(http.StatusMethodNotAllowed)
-    })
-    mux.HandleFunc("/campaigns/send", func(w http.ResponseWriter, r *http.Request){
-        if r.Method=="POST"{ handler.SendCampaign(w,r); return }
-        w.WriteHeader(http.StatusMethodNotAllowed)
-    })
-    mux.HandleFunc("/preview", func(w http.ResponseWriter, r *http.Request){ if r.Method=="POST"{ handler.Preview(w,r); return }; w.WriteHeader(http.StatusMethodNotAllowed)})
+    r := mux.NewRouter()
 
+    // Campaign endpoints
+    r.HandleFunc("/campaigns", handler.CreateCampaign).Methods("POST")
+    r.HandleFunc("/campaigns", handler.ListCampaigns).Methods("GET")
+    r.HandleFunc("/campaigns/{id:[0-9]+}", handler.GetCampaignDetails).Methods("GET")
+    r.HandleFunc("/campaigns/{id:[0-9]+}/send", handler.SendCampaign).Methods("POST")
+    r.HandleFunc("/campaigns/{id:[0-9]+}/personalized-preview", handler.Preview).Methods("POST")
+
+    // Stats & health
+    r.HandleFunc("/stats", handler.Stats).Methods("GET")
+    r.HandleFunc("/health", handler.Health).Methods("GET")
+
+    // Start worker
     worker := workerpkg.NewWorker(svc, consumer)
-    go func(){
-        if err := worker.Start(); err!=nil { log.Printf("worker err: %v", err) }
+    go func() {
+        if err := worker.Start(); err != nil {
+            log.Printf("worker err: %v", err)
+        }
     }()
 
-    srv := &http.Server{ Addr: ":8080", Handler: mux, ReadTimeout: 10*time.Second, WriteTimeout: 10*time.Second }
-    log.Println("listening :8080"); log.Fatal(srv.ListenAndServe())
+    srv := &http.Server{
+        Addr:         ":8080",
+        Handler:      r,
+        ReadTimeout:  10 * time.Second,
+        WriteTimeout: 10 * time.Second,
+    }
+
+    log.Println("listening :8080")
+    log.Fatal(srv.ListenAndServe())
 }
