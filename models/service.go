@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"sms_leopard/utils"
 	"strings"
 	"time"
 )
@@ -55,6 +56,7 @@ func (s *Service) CreateCampaign(name, template string) (*Campaign, error) {
 		return nil, err
 	}
 	id, _ := res.LastInsertId()
+	utils.Log("Campaign created succesfully")
 	return &Campaign{ID: id, Name: name, Template: template, Status: "draft"}, nil
 }
 
@@ -74,6 +76,7 @@ func (s *Service) ListCampaigns(limit, offset int) ([]Campaign, error) {
 		c.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", created)
 		out = append(out, c)
 	}
+	utils.Log("Campaigns listed succesfully")
 	return out, nil
 }
 
@@ -84,6 +87,7 @@ func (s *Service) GetCampaign(id int64) (*Campaign, error) {
 		return nil, err
 	}
 	c.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", created)
+	utils.Log("Campaign fetched succesfully")
 	return &c, nil
 }
 
