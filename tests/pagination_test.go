@@ -1,7 +1,7 @@
 package tests
 
 import (
-    "database/sql"
+    //"database/sql"
     "testing"
 
     "github.com/DATA-DOG/go-sqlmock"
